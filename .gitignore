@@ -1,0 +1,30 @@
+# CMake build directories and generated files
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+Makefile
+
+# C and C++ build artifacts
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Model files are large binary assets
+*.gguf
+
+# macOS
+.DS_Store
+
+# IDE metadata
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
