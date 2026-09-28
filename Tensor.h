@@ -21,7 +21,12 @@ Tensor feedforward(const Tensor &x, const Tensor &W1, const Tensor &W2);
 Tensor layer_norm(const Tensor &x);
 Tensor attention(const Tensor &Q, const Tensor &K, const Tensor &V);
 Tensor multi_head_attention(const Tensor &Q, const Tensor &K, const Tensor &V, int num_heads);
-Tensor transformer_layer(const Tensor &x, int num_heads, const Tensor &W1, const Tensor &W2);
-Tensor stacked_transformer(const Tensor &x, int num_heads, int num_layers, const std::vector<Tensor> &W1_list, const std::vector<Tensor> &W2_list);
+Tensor transformer_layer(const Tensor& x, int num_heads,
+                             const Tensor& Wq, const Tensor& Wk, const Tensor& Wv,
+                             const Tensor& W1, const Tensor& W2);
+Tensor stacked_transformer(const Tensor &x, int num_heads, int num_layers,
+                           const std::vector<Tensor> &W1_list,
+                           const std::vector<Tensor> &W2_list, const std::vector<Tensor> &Wq_list,
+                           const std::vector<Tensor> &Wk_list, const std::vector<Tensor> &Wv_list);
 
 #endif

@@ -71,8 +71,13 @@ float f16_to_f32(uint16_t h)
 Tensor load_tensor_data(std::ifstream &file, const GGUFTensorInfo &info, uint64_t data_section_start)
 {
     Tensor t;
-    t.rows = info.shape.size() >= 2 ? info.shape[0] : 1;
-    t.cols = info.shape.size() >= 2 ? info.shape[1] : info.shape[0];
+    if (info.shape.size() >= 2) {
+        t.rows = info.shape[1];   // true memory layout: (out x in)
+        t.cols = info.shape[0];
+    } else {
+        t.rows = 1;
+        t.cols = info.shape[0];
+    }
 
     uint64_t num_elements = 1;
     for (uint64_t d : info.shape)
@@ -100,11 +105,21 @@ Tensor load_tensor_data(std::ifstream &file, const GGUFTensorInfo &info, uint64_
         std::cout << "Unsupported dtype: " << info.dtype << "\n";
     }
 
+    if (info.shape.size() >= 2) {
+        return transpose(t);      // now (in x out), ready for x @ W
+    }
     return t;
 }
 
+template <typename T, typename A>
+int arg_max(std::vector<T, A> const& vec) {
+  return static_cast<int>(std::distance(vec.begin(), max_element(vec.begin(), vec.end())));
+}
+
+
 void load_gguf(const std::string &path)
 {
+    std::vector<std::string> vocab;
     std::ifstream file(path, std::ios::binary);
     if (!file)
     {
@@ -162,7 +177,9 @@ void load_gguf(const std::string &path)
             {
                 if (element_type == 8)
                 {
-                    std::string discard = read_gguf_string(file);
+                    std::string s = read_gguf_string(file);
+                    if (key == "tokenizer.ggml.tokens")
+                        vocab.push_back(s);
                 }
                 else
                 {
@@ -235,20 +252,32 @@ void load_gguf(const std::string &path)
     std::cout << "\n";
 
     std::vector<Tensor> W1_list, W2_list;
+    std::vector<Tensor> Wq_list, Wk_list, Wv_list;  // NEW
 
-    for (int layer = 0; layer < 2; layer++)
-    {
+    for (int layer = 0; layer < 2; layer++) {
         std::string up_name = "blk." + std::to_string(layer) + ".ffn_up.weight";
         std::string down_name = "blk." + std::to_string(layer) + ".ffn_down.weight";
+        std::string q_name = "blk." + std::to_string(layer) + ".attn_q.weight";     
+        std::string k_name = "blk." + std::to_string(layer) + ".attn_k.weight";     
+        std::string v_name = "blk." + std::to_string(layer) + ".attn_v.weight";     
 
-        const GGUFTensorInfo *up_info = find_tensor(tensor_infos, up_name);
-        const GGUFTensorInfo *down_info = find_tensor(tensor_infos, down_name);
+        const GGUFTensorInfo* up_info = find_tensor(tensor_infos, up_name);
+        const GGUFTensorInfo* down_info = find_tensor(tensor_infos, down_name);
+        const GGUFTensorInfo* q_info = find_tensor(tensor_infos, q_name);           
+        const GGUFTensorInfo* k_info = find_tensor(tensor_infos, k_name);          
+        const GGUFTensorInfo* v_info = find_tensor(tensor_infos, v_name);         
 
         Tensor W1 = load_tensor_data(file, *up_info, data_section_start);
         Tensor W2 = load_tensor_data(file, *down_info, data_section_start);
+        Tensor Wq = load_tensor_data(file, *q_info, data_section_start);        
+        Tensor Wk = load_tensor_data(file, *k_info, data_section_start);          
+        Tensor Wv = load_tensor_data(file, *v_info, data_section_start);         
 
         W1_list.push_back(W1);
         W2_list.push_back(W2);
+        Wq_list.push_back(Wq); 
+        Wk_list.push_back(Wk); 
+        Wv_list.push_back(Wv); 
     }
 
     const GGUFTensorInfo *embd_info = find_tensor(tensor_infos, "token_embd.weight");
@@ -264,7 +293,19 @@ void load_gguf(const std::string &path)
         x.data[i] = full_embd.data[i * 32000 + token_id];
     }
 
-    Tensor result = stacked_transformer(x, 4, 2, W1_list, W2_list);
+    Tensor result = stacked_transformer(x, 4, 2, W1_list, W2_list, Wq_list, Wk_list, Wv_list);
+    const GGUFTensorInfo* out_info = find_tensor(tensor_infos, "output.weight");
+    Tensor W_out = load_tensor_data(file, *out_info, data_section_start);  // 16 x 32000
+    Tensor result_normed = layer_norm(result);
+    Tensor logits = matmul(result_normed, W_out);
+    softmax(logits.data);
+    int best = arg_max(logits.data);
+    float total = 0.0f;
+    for (float p : logits.data) total += p;
+    std::cout << "Predicted token: \"" << vocab[best] << "\"\n";
+    std::cout << "Predicted token id: " << best << "\n";
+    std::cout << "Probability: " << logits.data[best] << "\n";
+    std::cout << "Sum of probabilities: " << total << "\n";
     for (float v : result.data)
         std::cout << v << " ";
     std::cout << "\n";

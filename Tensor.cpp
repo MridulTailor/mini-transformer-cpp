@@ -220,9 +220,16 @@ Tensor multi_head_attention(const Tensor &Q, const Tensor &K, const Tensor &V, i
     return result;
 }
 
-Tensor transformer_layer(const Tensor &x, int num_heads, const Tensor &W1, const Tensor &W2)
-{
-    Tensor attn_out = multi_head_attention(x, x, x, num_heads);
+Tensor transformer_layer(const Tensor& x, int num_heads,
+                             const Tensor& Wq, const Tensor& Wk, const Tensor& Wv,
+                             const Tensor& W1, const Tensor& W2) {
+    // 1. project x into Q, K, V using matmul with Wq, Wk, Wv
+    // 2. run multi_head_attention on the PROJECTED Q, K, V (not x, x, x)
+    // 3. everything else stays the same as your existing transformer_layer
+    Tensor Q = matmul(x, Wq);
+    Tensor K = matmul(x, Wk);
+    Tensor V = matmul(x, Wv);
+    Tensor attn_out = multi_head_attention(Q, K, V, num_heads);
     Tensor x2 = layer_norm(add(x, attn_out));
 
     Tensor ff_out = feedforward(x2, W1, W2);
@@ -233,12 +240,13 @@ Tensor transformer_layer(const Tensor &x, int num_heads, const Tensor &W1, const
 
 Tensor stacked_transformer(const Tensor &x, int num_heads, int num_layers,
                            const std::vector<Tensor> &W1_list,
-                           const std::vector<Tensor> &W2_list)
+                           const std::vector<Tensor> &W2_list, const std::vector<Tensor> &Wq_list,
+                           const std::vector<Tensor> &Wk_list, const std::vector<Tensor> &Wv_list)
 {
     Tensor current = x;
     for (int i = 0; i < num_layers; i++)
     {
-        current = transformer_layer(current, num_heads, W1_list[i], W2_list[i]);
+        current = transformer_layer(current, num_heads, Wq_list[i], Wk_list[i], Wv_list[i], W1_list[i], W2_list[i]);
     }
     return current;
 }
