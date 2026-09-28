@@ -19,6 +19,7 @@ Tensor concat_columns(const Tensor &a, const Tensor &b);
 void relu(std::vector<float> &x);
 Tensor feedforward(const Tensor &x, const Tensor &W1, const Tensor &W2);
 Tensor layer_norm(const Tensor &x);
+Tensor rms_norm(const Tensor& x, const Tensor& weight, float eps);
 Tensor attention(const Tensor &Q, const Tensor &K, const Tensor &V);
 Tensor multi_head_attention(const Tensor &Q, const Tensor &K, const Tensor &V, int num_heads);
 Tensor transformer_layer(const Tensor& x, int num_heads,

@@ -24,7 +24,27 @@ int main()
         std::cout << "\n";
     }
 
-    // GGUF parser test — update this path to match your file
+    // RMSNorm test
+    Tensor x;
+    x.rows = 1;
+    x.cols = 2;
+    x.data = {3.0f, 4.0f};
+
+    Tensor weight;
+    weight.rows = 1;
+    weight.cols = 2;
+    weight.data = {1.0f, 1.0f};
+
+    Tensor y = rms_norm(x, weight, 1e-5f);
+
+    std::cout << "rms_norm(x, weight) = ";
+    for (int i = 0; i < y.data.size(); i++)
+    {
+        std::cout << y.data[i] << " ";
+    }
+    std::cout << "\n";
+
+    // GGUF parser test
     load_gguf("tiny-random-LlamaForCausalLM.gguf");
 
     return 0;

@@ -165,6 +165,27 @@ Tensor layer_norm(const Tensor &x)
     return result;
 }
 
+Tensor rms_norm(const Tensor& x, const Tensor& weight, float eps) {
+    Tensor result = x;
+
+    for (int i = 0; i < x.rows; i++) {
+        float mean_sq = 0.0f;
+        for (int j = 0; j < x.cols; j++) {
+            float v = x.data[i * x.cols + j];
+            mean_sq += v * v;
+        }
+
+        float inv_rms = 1.0f / std::sqrt(mean_sq / x.cols + eps);
+
+        for (int j = 0; j < x.cols; j++) {
+            result.data[i * x.cols + j] =
+                x.data[i * x.cols + j] * inv_rms * weight.data[j];
+        }
+    }
+
+    return result;
+}
+
 Tensor attention(const Tensor &Q, const Tensor &K, const Tensor &V)
 {
     Tensor K_t = transpose(K);
@@ -223,9 +244,6 @@ Tensor multi_head_attention(const Tensor &Q, const Tensor &K, const Tensor &V, i
 Tensor transformer_layer(const Tensor& x, int num_heads,
                              const Tensor& Wq, const Tensor& Wk, const Tensor& Wv,
                              const Tensor& W1, const Tensor& W2) {
-    // 1. project x into Q, K, V using matmul with Wq, Wk, Wv
-    // 2. run multi_head_attention on the PROJECTED Q, K, V (not x, x, x)
-    // 3. everything else stays the same as your existing transformer_layer
     Tensor Q = matmul(x, Wq);
     Tensor K = matmul(x, Wk);
     Tensor V = matmul(x, Wv);
