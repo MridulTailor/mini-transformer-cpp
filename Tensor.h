@@ -12,6 +12,7 @@ struct Tensor
 
 Tensor add(const Tensor &a, const Tensor &b);
 Tensor matmul(const Tensor &a, const Tensor &b);
+Tensor matmul_optimized(const Tensor &a, const Tensor &b);
 void softmax(std::vector<float> &x);
 Tensor transpose(const Tensor &a);
 Tensor slice_columns(const Tensor &a, int col_start, int col_end);

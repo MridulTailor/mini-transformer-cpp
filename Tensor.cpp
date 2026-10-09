@@ -40,6 +40,27 @@ Tensor matmul(const Tensor &a, const Tensor &b)
     return result;
 }
 
+Tensor matmul_optimized(const Tensor &a, const Tensor &b)
+{
+    Tensor result;
+    result.rows = a.rows;
+    result.cols = b.cols;
+    result.data.assign(result.rows * result.cols, 0.0f);
+
+    for (int i = 0; i < a.rows; i++)
+    {
+        for (int k = 0; k < a.cols; k++)
+        {
+            const float value = a.data[i * a.cols + k];
+            for (int j = 0; j < b.cols; j++)
+            {
+                result.data[i * result.cols + j] += value * b.data[k * b.cols + j];
+            }
+        }
+    }
+    return result;
+}
+
 void softmax(std::vector<float> &x)
 {
     for (int i = 0; i < x.size(); i++)
